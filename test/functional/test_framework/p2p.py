@@ -30,6 +30,7 @@ import threading
 
 from test_framework.messages import (
     CBlockHeader,
+    CInv,
     MAX_HEADERS_RESULTS,
     MIN_VERSION_SUPPORTED,
     msg_addr,
@@ -721,7 +722,7 @@ class P2PDataStore(P2PInterface):
         """Send txs to test node and test whether they're accepted to the mempool.
 
          - add all txs to our tx_store
-         - send tx messages for all txs
+         - send announcements and tx messages for all txs
          - if success is True/False: assert that the txs are/are not accepted to the mempool
          - if expect_disconnect is True: Skip the sync with ping
          - if reject_reason is set: assert that the correct reject message is logged."""
@@ -733,6 +734,8 @@ class P2PDataStore(P2PInterface):
         reject_reason = [reject_reason] if reject_reason else []
         with node.assert_debug_log(expected_msgs=reject_reason):
             for tx in txs:
+                sha256 = tx.calc_sha256(with_witness=True)
+                self.send_message(msg_inv(inv=[CInv(MSG_WTX, sha256)]))
                 self.send_message(msg_tx(tx))
 
             if expect_disconnect:

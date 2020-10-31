@@ -3157,6 +3157,13 @@ void PeerManagerImpl::ProcessMessage(CNode& pfrom, const std::string& msg_type, 
         CNodeState* nodestate = State(pfrom.GetId());
 
         const uint256& hash = nodestate->m_wtxid_relay ? wtxid : txid;
+
+        // Do no not process unrequested transactions to mitigate potential DoS risks.
+        if (!pfrom.HasPermission(PF_RELAY) && !m_txrequest.ExpectedTx(hash)) {
+            LogPrint(BCLog::NET, "unrequested transaction from peer=%d\n", pfrom.GetId());
+            return;
+        }
+
         pfrom.AddKnownTx(hash);
         if (nodestate->m_wtxid_relay && txid != wtxid) {
             // Insert txid into filterInventoryKnown, even for

@@ -678,6 +678,13 @@ public:
         if (it != m_index.get<ByPeer>().end()) MakeCompleted(m_index.project<ByTxHash>(it));
     }
 
+    bool ExpectedTx(const uint256& txhash)
+    {
+        auto it = m_index.get<ByTxHash>().lower_bound(ByTxHashView{txhash, State::REQUESTED, 0});
+        if (it != m_index.get<ByTxHash>().end() && it->m_txhash == txhash) return true;
+        return false;
+    }
+
     size_t CountInFlight(NodeId peer) const
     {
         auto it = m_peerinfo.find(peer);
@@ -742,6 +749,11 @@ void TxRequestTracker::RequestedTx(NodeId peer, const uint256& txhash, std::chro
 void TxRequestTracker::ReceivedResponse(NodeId peer, const uint256& txhash)
 {
     m_impl->ReceivedResponse(peer, txhash);
+}
+
+bool TxRequestTracker::ExpectedTx(const uint256& txhash)
+{
+    return m_impl->ExpectedTx(txhash);
 }
 
 std::vector<GenTxid> TxRequestTracker::GetRequestable(NodeId peer, std::chrono::microseconds now,

@@ -124,10 +124,12 @@ def get_virtual_size(witness_block):
 def test_transaction_acceptance(node, p2p, tx, with_witness, accepted, reason=None):
     """Send a transaction to the node and check that it's accepted to the mempool
 
+    - Announce the transaction over the p2p interface
     - Submit the transaction over the p2p interface
     - use the getrawmempool rpc to check for acceptance."""
     reason = [reason] if reason else []
     with node.assert_debug_log(expected_msgs=reason):
+        p2p.send_message(msg_inv(inv=[CInv(MSG_TX, tx.sha256)]))
         p2p.send_and_ping(msg_tx(tx) if with_witness else msg_no_witness_tx(tx))
         assert_equal(tx.hash in node.getrawmempool(), accepted)
 
@@ -340,6 +342,7 @@ class SegWitTest(BitcoinTestFramework):
         # This is a sanity check of our testing framework.
         assert_equal(msg_no_witness_tx(tx).serialize(), msg_tx(tx).serialize())
 
+        self.test_node.send_message(msg_inv(inv=[CInv(MSG_TX, tx.sha256)]))
         self.test_node.send_and_ping(msg_tx(tx))  # make sure the block was processed
         assert tx.hash in self.nodes[0].getrawmempool()
         # Save this transaction for later
