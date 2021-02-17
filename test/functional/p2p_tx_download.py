@@ -248,10 +248,19 @@ class TxDownloadTest(BitcoinTestFramework):
         self.log.info("Check that nodes don't process unrequested txn")
         self.restart_node(0)
 
-        unrequested_tx = CTransaction()
-        unrequested_tx.vin.append(CTxIn())
-
-        unrequested_tx.vout.append(CTxOut())
+        # Create a valid tx
+        tx = self.nodes[0].createrawtransaction(
+            inputs=[{  # coinbase
+                "txid": self.nodes[0].getblock(self.nodes[0].getblockhash(1))['tx'][0],
+                "vout": 0
+            }],
+            outputs={ADDRESS_BCRT1_UNSPENDABLE: 50 - 0.00025},
+        )
+        tx = self.nodes[0].signrawtransactionwithkey(
+            hexstring=tx,
+            privkeys=[self.nodes[0].get_deterministic_priv_key().key],
+        )['hex']
+        unrequested_tx = FromHex(CTransaction(), tx)
         unrequested_tx.calc_sha256()
 
         peer = self.nodes[0].add_p2p_connection(P2PInterface())
@@ -267,9 +276,9 @@ class TxDownloadTest(BitcoinTestFramework):
 
         peer = self.nodes[0].add_p2p_connection(P2PInterface())
         peer.send_message(msg_tx(unrequested_tx))
-        with self.nodes[0].assert_debug_log(expected_msgs=['from peer=0 was not accepted: scriptpubkey']):
-            peer.sync_with_ping()
-            assert_equal(len(self.nodes[0].getrawmempool()), 0)
+        peer.sync_with_ping()
+        assert_equal(len(self.nodes[0].getrawmempool()), 1)
+
         peer.peer_disconnect()
         peer.wait_for_disconnect()
 
